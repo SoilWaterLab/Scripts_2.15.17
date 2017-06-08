@@ -4,7 +4,7 @@
 #
 # Comments added by Tanvi Naidu (June 7th 2017)
 #
-# Bridges section fixed by Zoya Kaufmann 1/23/17
+# Bridges section fixed by Zoya Kaufmann 1/23/17, minor edits 6/8/2017
 #
 # Updated by Lisa Watkins 9/23/16
 #
@@ -43,7 +43,7 @@ writer = csv.writer(f_out) # returns writer object from output
 writer_no_extract=csv.writer(not_extracted_out) #returns writer object from non-extracted-data output
 
 #writes the specified headings along a row for the extracted and excluded data
-writer.writerow(['BarrierID','NAACC_ID','Lat','Long','Rd_Name','Culv_Mat','In_Type','In_Shape','In_A','In_B','HW','Slope','Length','Out_Shape','Out_A','Out_B','Comments','Flags']) #header row
+writer.writerow(['Survey_ID','BarrierID','NAACC_ID','Lat','Long','Rd_Name','Culv_Mat','In_Type','In_Shape','In_A','In_B','HW','Slope','Length','Out_Shape','Out_A','Out_B','Comments','Flags']) #header row
 writer_no_extract.writerow(['Survey_ID','NAACC_ID','Lat','Long','Rd_Name','Culv_Mat','In_Type','In_Shape','In_A','In_B','HW','Slope','Length','Out_Shape','Out_A','Out_B','Comments','Flags']) #header row
 
 # create an array to store field data values from the input spreadsheet
@@ -193,7 +193,7 @@ with open(raw_data, 'r') as f:
             and CD[44]!="Bridge with Side Slopes"
             and (CD[44]!="Box/Bridge with Abutments" and Inlet_A<20) # Crossings less than 20 ft are considered culverts
             and (CD[44]!="Open Bottom Arch Bridge/Culvert" and Inlet_A<20)): # Crossings less than 20 ft are considered culverts
-                writer.writerow([BarrierID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
+                writer.writerow([Survey_ID, BarrierID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
                 k=k+1
             else:
                 writer_no_extract.writerow([Survey_ID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
@@ -206,7 +206,7 @@ file_out_path=os.path.dirname(os.path.abspath(output))+'\\' + output #sets the d
 no_extract_out_path=os.path.dirname(os.path.abspath(not_extracted))+'\\' + not_extracted #sets the directory and name of the file containing data not extracted
 
 #displays a message to the user indicating completion of extraction and the locations of the output files
-print '\nExtraction complete! Exctracted values can be found here:\n'
+print '\nExtraction complete! Extracted values can be found here:\n'
 print file_out_path
 print 'Crossings excluded from analysis can be found here:\n'
 print no_extract_out_path
