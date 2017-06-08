@@ -6,22 +6,27 @@
 # July 8 2015
 # Updated most recently by Lisa Watkins
 # 9/15/16
-
+#
+# Comments added by Tanvi Naidu, (6/8/2017)
+#
 # Calculate the capacity of a culvert under inlet control
 #
 # Inputs: culvert_capacity_input.csv 
 #
 # Outputs: culvert capacity (m^3/s)
 
+# Importing required modules and packages for analysis in python
 import numpy, os, re, csv
 
+
 def inlet_control(culv_cap_in, output_filename):
-    f_out = open(output_filename, 'wb') #output file
+    f_out = open(output_filename, 'wb') #opens the output file for writing in binary form
     writer = csv.writer(f_out) #write object
 
     writer.writerow(['Final_ID','Q','Flags','NAACC_ID','Latitude','Longitude','Comments','Cross_sectional_area']) #header row
     # Q is culvert capacity under inlet control
 
+    #creating empty lists for the specified parameters
     Q=[]
     culvertID=[]
     Flags=[]
@@ -30,13 +35,13 @@ def inlet_control(culv_cap_in, output_filename):
     Long=[]
     Comments=[]
     C_Area = []
-#
-    with open(culv_cap_in, 'r') as f:
+
+    with open(culv_cap_in, 'r') as f: #opening culvert capacity input file for reading
         input_table = csv.reader(f)
         next(f) # skip header
     
         for row in input_table: #each culvert
-#
+
     # Capacity 
             cID = row[0] #Culvert ID, two letters indicate watershed abbreviation
             culvertID.append(cID)
