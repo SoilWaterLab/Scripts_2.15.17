@@ -2,75 +2,61 @@
 # David Gold
 # November 6, 2015
 
-# Last updated by Lisa Watkins 9/15/2016
 
 # This script will sort the ws data exported from GIS by ID number
 
-import csv
-import sys
-import operator
-import numpy
+import csv, sys, operator, numpy, loader
 
-def sort(ws_data, ID, field_data, output_filename):
+def sort(watershed_data_input_filename, county_abbreviation, output_filename):
 
-    # First write the unsorted ws data to a list and truncate the ID so it
-    # is only numbers
-   
-    try:
-        with open(ws_data, 'r') as i:
-            input_table = csv.reader(i)
-            next(i) # skip header
-            id_name=len(ID)
-            #i=0
-            unsorted=[]
-            for row in input_table:
-                id_full=row[2]
-                id_len=len(id_full)
-                id_num=id_full[:id_len-(id_name+2)]
-                id_num=int(id_num)
-                Area=row[3]
-                Tc=row[4]
-                CN=row[5]
+    # Define signature for input file.
+    watershed_data_signature = [
+        {'name': 'BarrierID', 'type': str},
+        {'name': 'Area_sqkm', 'type': float},
+        {'name': 'Tc_hr', 'type': float},
+        {'name': 'CN', 'type': float}
+        # Future: latitude and longitude.
+    ];
 
-            
-                irow=[id_num,Area,Tc,CN]
-                unsorted.append(irow)
-        i.close()
-    except IOError:
-        print "ERROR: Could not find culvert watershed file '" + ws_data + "'. Bailing out."
-        sys.exit(0)
+    # Load data.
+    watershed_data = loader.load(watershed_data_input_filename, watershed_data_signature, 1, -1)
+    valid_watersheds = watershed_data['valid_rows']
 
+    # If there were invalid watershed rows, make a note but continue on.
+    num_invalid_rows = len(watershed_data['invalid_rows']) 
+    if num_invalid_rows > 0:
+        print "* Note: there were " \
+            + str(num_invalid_rows) \
+            + " invalid rows in the watershed data. Continuing with the " \
+            + str(len(valid_watersheds)) \
+            + " valid rows."
+
+    # Strip *their* county abbreviation off BarrierIDs and cast to int, e.g., '10cmbws' -> 10
+    id_suffix_len = 5 # Seems like their abbreviations are always 3-letter acronyms plus 'ws'.
+    for watershed in valid_watersheds:
+        barrier_id = watershed['BarrierID']
+        watershed['BarrierID'] = int(barrier_id[:len(barrier_id) - id_suffix_len])
     
-    # Sort the newly created list by ID number
-    ws_sorted=sorted(unsorted, key=operator.itemgetter(0),reverse=False)
-    
-    # Add the WS ID letters back in
-    for i in range(0,len(ws_sorted)):
-        ws_sorted[i][0]=str(ws_sorted[i][0])+ID
+    # Sort the valid watersheds by this BarrierID number.
+    def get_id(row):
+        return row['BarrierID']
+    valid_watersheds = sorted(valid_watersheds, key = get_id, reverse = False)
 
-    F=[] #Empty array for flags
-    # Import field data to get flags
-    with open(field_data, 'r') as j:
-        input_table=csv.reader(j)
-        next(j)
-        for row in input_table:
-            F.append(row[17])
-        
-    j.close
-    
+    # Write the sorted data to a new csv file.
+    with open(output_filename, 'wb') as output_file:
+        output_writer = csv.writer(output_file)
 
-    # Write the sorted data to a new csv file
-    f_out= open(output_filename, 'wb')
-    w=csv.writer(f_out)
-    w.writerow(['Barrier_ID','Area_sqkm','Tc_hr','CN','Flags'])
+        # Header.
+        output_writer.writerow(['BarrierID','Area_sqkm','Tc_hr','CN'])
     
-    for i in range(0,len(ws_sorted)):
-        Name=ws_sorted[i][0]
-        Area=ws_sorted[i][1]
-        Tc=ws_sorted[i][2]
-        CN=ws_sorted[i][3]
-        Flags=F[i]
-        
-        w.writerow([Name,Area,Tc,CN,Flags])
-        
-    f_out.close()
+        # Row for each watershed.
+        # Note we are adding *our* county abbreviation back onto the BarrierID number.
+        for watershed in valid_watersheds:
+            output_writer.writerow([ \
+                str(watershed['BarrierID']) + county_abbreviation, \
+                watershed['Area_sqkm'], \
+                watershed['Tc_hr'], \
+                watershed['CN'] \
+            ])
+
+    # File automatically closed by 'with'.
