@@ -2,146 +2,143 @@
 # David Gold
 # June 9 2015
 
-# Last updated by Lisa Watkins 9/15/2016
-
 # Given culvert capacity and peak discharge from storm events, determine the
 # highest return period storm that a culvert can pass for current and future rainfall conditions.
 
-import numpy, os, re, csv
+import numpy, os, re, csv, loader
 
-def return_periods(culvert_capacities,current_runoff,future_runoff, output_filename):
+def return_periods(capacity_filename, current_runoff_filename, future_runoff_filename, return_periods_output_filename, final_output_filename):
+
+    # Runoff signature:
+    runoff_signature = [
+        {'name': 'BarrierID', 'type': str},
+        # Later: NEW_Lat, NEW_Long
+        {'name': 'Area_sqkm', 'type': float},
+        {'name': 'Tc_hr', 'type': float},
+        {'name': 'CN', 'type': float},
+        {'name': 'Y1', 'type': float},
+        {'name': 'Y2', 'type': float},
+        {'name': 'Y5', 'type': float},
+        {'name': 'Y10', 'type': float},
+        {'name': 'Y25', 'type': float},
+        {'name': 'Y50', 'type': float},
+        {'name': 'Y100', 'type': float},
+        {'name': 'Y200', 'type': float},
+        {'name': 'Y500', 'type': float}
+    ]
+
+    # Culvert signature:
+    culvert_signature = [
+        {'name': 'BarrierID', 'type': str},
+        {'name': 'NAACC_ID', 'type': int},
+        {'name': 'Lat', 'type': float},
+        {'name': 'Long', 'type': float},
+        {'name': 'Q', 'type': float},
+        {'name': 'Flags', 'type': int},
+        {'name': 'Comments', 'type': str},
+        {'name': 'Culvert_Area', 'type': float},
+    ]
+
+    # Load current and future runoffs:
+    current_runoff_data = loader.load(current_runoff_filename, runoff_signature, 1, -1)
+    current_runoff_rows = current_runoff_data['valid_rows']
+
+    future_runoff_data = loader.load(future_runoff_filename, runoff_signature, 1, -1)
+    future_runoff_rows = future_runoff_data['valid_rows']
+
+    # Create lookup dictionaries for the runoffs. This speeds matching culverts to watersheds up quite a bit.
+    current_runoff_lookup = {}
+    for watershed in current_runoff_rows:
+        current_runoff_lookup[watershed['BarrierID']] = watershed
+
+    future_runoff_lookup = {}
+    for watershed in future_runoff_rows:
+        future_runoff_lookup[watershed['BarrierID']] = watershed
     
-    f_out = open(output_filename, 'wb') #output file
-    writer = csv.writer(f_out) #write object
+    # Load culvert capacities:
+    culvert_data = loader.load(capacity_filename, culvert_signature, 1, -1)
+    culvert_rows = culvert_data['valid_rows']
 
-    writer.writerow(['Final_ID','Current Max Return (yr)','Future Max Return (yr)']) #header row, Barrier_ID now called 'Final_ID' because at this point, additonal culverts at a crossing have been skipped.
+    # A list of the years.
+    years = [0, 1, 2, 5, 10, 25, 50, 100, 200, 500]
 
-    # Max return period is the largest storm that a culvert can pass
-
-    # Build empty array for current return period storms
-    current_year_id=[]
-    current_year_1=[]
-    current_year_2=[]
-    current_year_5=[]
-    current_year_10=[]
-    current_year_25=[]
-    current_year_50=[]
-    current_year_100=[]
-    current_year_200=[]
-    current_year_500=[]
-
-    # Add values to each array by importing from runoff output
-    with open(current_runoff, 'r') as f: #input file
-        input_table = csv.reader(f)
-        next(f) # skip header
-
-        for row in input_table: #each culvert
-            current_year_id.append(row[0]) # save ID to filter out missing ones later.
-            current_year_1.append(float(row[4]))
-            current_year_2.append(float(row[5]))
-            current_year_5.append(float(row[6]))
-            current_year_10.append(float(row[7]))
-            current_year_25.append(float(row[8]))
-            current_year_50.append(float(row[9]))
-            current_year_100.append(float(row[10]))
-            current_year_200.append(float(row[11]))
-            current_year_500.append(float(row[12]))
-        
-    f.close()
-
-    # Build empty array for future return period storms
-    future_year_1=[]
-    future_year_2=[]
-    future_year_5=[]
-    future_year_10=[]
-    future_year_25=[]
-    future_year_50=[]
-    future_year_100=[]
-    future_year_200=[]
-    future_year_500=[]
-
-    # Add values to each array by importing from runoff output
-    with open(future_runoff, 'r') as h: #input file
-        input_table = csv.reader(h)
-        next(h) # skip header
-
-        for row in input_table: #each culvert
-            future_year_1.append(float(row[4]))
-            future_year_2.append(float(row[5]))
-            future_year_5.append(float(row[6]))
-            future_year_10.append(float(row[7]))
-            future_year_25.append(float(row[8]))
-            future_year_50.append(float(row[9]))
-            future_year_100.append(float(row[10]))
-            future_year_200.append(float(row[11]))
-            future_year_500.append(float(row[12]))
-        
-    h.close()
-
-    # Open capacity file and compare to current and future runoff values
-
-    with open(culvert_capacities, 'r') as g:
-        input_table2 = csv.reader(g)
-        next(g) # skip header
-
-        for row in input_table2: #each culvert in the capacities file
-            FinalID=row[0]
-
-            try:
-                # determine the index of this barrier in the list of culverts in the runoff data.
-                culvert_runoff_index = current_year_id.index(FinalID) 
-
-                Q=float(row[1])
-                # Determine current max return period by comparing capacity to current runoff
-                if Q < current_year_1[culvert_runoff_index]:
-                    current_capacity=0
-                elif Q >= current_year_1[culvert_runoff_index] and Q < current_year_2[culvert_runoff_index]:
-                    current_capacity = 1
-                elif Q >= current_year_2[culvert_runoff_index] and Q < current_year_5[culvert_runoff_index]:
-                    current_capacity = 2
-                elif Q >= current_year_5[culvert_runoff_index] and Q < current_year_10[culvert_runoff_index]:
-                    current_capacity =5
-                elif Q >= current_year_10[culvert_runoff_index] and Q < current_year_25[culvert_runoff_index]:
-                    current_capacity =10
-                elif Q >= current_year_25[culvert_runoff_index] and Q < current_year_50[culvert_runoff_index]:
-                    current_capacity =25
-                elif Q >= current_year_50[culvert_runoff_index] and Q < current_year_100[culvert_runoff_index]:
-                    current_capacity =50
-                elif Q >= current_year_100[culvert_runoff_index] and Q < current_year_200[culvert_runoff_index]:
-                    current_capacity =100
-                elif Q >= current_year_200[culvert_runoff_index] and Q < current_year_500[culvert_runoff_index]:
-                    current_capacity =200
-                elif Q > current_year_500[culvert_runoff_index]:
-                    current_capacity =500
-
-                # Determine future max return period by comparing capacity to current runoff
-                if Q < future_year_1[culvert_runoff_index]:
-                    future_capacity=0
-                elif Q >= future_year_1[culvert_runoff_index] and Q < future_year_2[culvert_runoff_index]:
-                    future_capacity = 1
-                elif Q >= future_year_2[culvert_runoff_index] and Q < future_year_5[culvert_runoff_index]:
-                    future_capacity = 2
-                elif Q >= future_year_5[culvert_runoff_index] and Q < future_year_10[culvert_runoff_index]:
-                    future_capacity =5
-                elif Q >= future_year_10[culvert_runoff_index] and Q < future_year_25[culvert_runoff_index]:
-                    future_capacity =10
-                elif Q >= future_year_25[culvert_runoff_index] and Q < future_year_50[culvert_runoff_index]:
-                    future_capacity =25
-                elif Q >= future_year_50[culvert_runoff_index] and Q < future_year_100[culvert_runoff_index]:
-                    future_capacity =50
-                elif Q >= future_year_100[culvert_runoff_index] and Q < future_year_200[culvert_runoff_index]:
-                    future_capacity =100
-                elif Q >= future_year_200[culvert_runoff_index] and Q < future_year_500[culvert_runoff_index]:
-                    future_capacity =200
-                elif Q > future_year_500[culvert_runoff_index]:
-                    future_capacity =500
-
-                writer.writerow([FinalID, current_capacity, future_capacity])
-
-            except ValueError:
-                # Didn't find this ID in the list of IDs from the runoff data, so must have been an invalid culvert. Skip it.
-                continue
-
-    g.close()
+    # A helper function to find the first overflow.
+    def find_first_overflow(culvert, watershed, years):
+        capacity = culvert['Q']
+        i = 1
+        while i < len(years):
+            year = years[i]
+            if capacity < watershed['Y' + str(year)]:
+                return years[i - 1]
+            i += 1
+        return years[i - 1]
     
-    f_out.close()
+    # Compute which return period each culvert will be able to withstand.
+    for culvert in culvert_rows:
+        # Find the corresponding current and future watersheds (they share BarrierID):
+        culvert['watershed'] = None
+        try:
+            current_watershed = current_runoff_lookup[culvert['BarrierID']]
+            future_watershed = future_runoff_lookup[culvert['BarrierID']]
+
+            culvert['current_return'] = find_first_overflow(culvert, current_watershed, years)
+            culvert['future_return'] = find_first_overflow(culvert, future_watershed, years)
+            culvert['watershed'] = current_watershed # Also save the watershed info, since we'll want it for our final output.
+            if culvert['Flags'] == 0:
+                culvert['Flags'] = 1 # Also fix flags so it means number of culverts.
+        except KeyError:
+            print "Did not find watershed for barrierID " + culvert['BarrierID']
+            # Did not find a watershed corresponding to this culvert in the runoffs. Skip.
+            # TODO export skipped culverts.
+            continue
+
+
+
+    # Just save the return periods.
+    with open(return_periods_output_filename, 'wb') as return_output_file:
+        csv_writer = csv.writer(return_output_file)
+
+        # Header
+        csv_writer.writerow(['BarrierID','Current Max Return (yr)','Future Max Return (yr)'])
+
+        # Each row.
+        for culvert in culvert_rows:
+            watershed = culvert['watershed']
+            if watershed == None:
+                continue # Skip all the culverts we couldn't match with watersheds.
+            csv_writer.writerow([culvert['BarrierID'], culvert['current_return'], culvert['future_return']])
+        
+
+
+    # Now save all the final data (easier to do that here since all the relevant files are already open.)
+    with open(final_output_filename, 'wb') as final_output_file:
+        csv_writer = csv.writer(final_output_file)
+
+        # Header
+        csv_writer.writerow(['BarrierID', 'NAACC_ID', 'Original Latitude', 'Original Longitude', 'Point Moved', 'New Latitude', 'New Longitude', 'Current Max Return Period (yr)', 'Future Max Return Period (yr)', 'Capacity (m^3/s)', 'Cross sectional Area (m^2)', 'WS Area (sq km)', 'Tc (hr)', 'CN', 'Number of Culverts', 'Comments'])
+
+        # Each row.
+        for culvert in culvert_rows:
+            watershed = culvert['watershed']
+            if watershed == None:
+                print "Skipping culvert " + culvert['BarrierID']
+                continue # Skip all the culverts we couldn't match with watersheds.
+            csv_writer.writerow([
+                culvert['BarrierID'], \
+                culvert['NAACC_ID'], \
+                culvert['Lat'], \
+                culvert['Long'], \
+                "?", \
+                "?", \
+                "?", \
+                culvert['current_return'], \
+                culvert['future_return'], \
+                culvert['Q'], \
+                culvert['Culvert_Area'], \
+                watershed['Area_sqkm'], \
+                watershed['Tc_hr'], \
+                watershed['CN'], \
+                culvert['Flags'], \
+                culvert['Comments']
+            ])
+
