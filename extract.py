@@ -17,28 +17,32 @@
 #
 # Outputs: Culvert script input
 
-raw_data=raw_input("Enter name of raw data file:")
+raw_data=raw_input("Enter name of raw data file:") #promts user to enter file name
 L_rd=len(raw_data)
-if raw_data[L_rd-4:]!='.csv':
-    raw_data=raw_data+'.csv'   
-ws_name=raw_input("Enter watershed abbreviation:")
+if raw_data[L_rd-4:]!='.csv': #corrects entered file name to end with '.csv' it if doesn't already
+    raw_data=raw_data+'.csv'   #end with '.csv' 
+ws_name=raw_input("Enter watershed abbreviation:") #prompts user to enter three-letter watershed abbreviation
 data_type=raw_input("Fulcrum data or NAACC data? (Enter F for Fulcrum, N for NAACC):")
+#prompts user to enter F or N based on type of data input
 
-#Make sure they can't input anything but F or N
+#Makes sure the user cannot input anything but capital or lower-case F or N by displaying the prompt 
+#again if anything else is entered
 while data_type !='f' and data_type != 'F' and data_type !='n' and data_type !='N':
     data_type=raw_input('Please enter either F for Fulcrum or N for NAACC:')
 
+# Saves the output files as the 3-letter watershed abbreviation followed by the specified suffix
 output=ws_name+"_field_data.csv"
 not_extracted=ws_name+"_not_extracted.csv"
-    
+
+# imports required packages and modules to extract the data
 import numpy, os, re, csv
 
-f_out = open(output, 'wb') #output file for extracted culverts
-not_extracted_out= open(not_extracted, 'wb') #output for crossings not extracted
-writer = csv.writer(f_out) #write object
-writer_no_extract=csv.writer(not_extracted_out)
+f_out = open(output, 'wb') #opens output file for extracted culverts for writing in binary mode 
+not_extracted_out= open(not_extracted, 'wb') #opens output for crossings not extracted for writing in binary mode
+writer = csv.writer(f_out) # returns writer object from output
+writer_no_extract=csv.writer(not_extracted_out)  #returns writer object from non-extracted-data output
 
-#write headings
+#writes the specified headings along a row for the extracted and excluded data
 writer.writerow(['BarrierID','NAACC_ID','Lat','Long','Rd_Name','Culv_Mat','In_Type','In_Shape','In_A','In_B','HW','Slope','Length','Out_Shape','Out_A','Out_B','Comments','Flags']) #header row
 writer_no_extract.writerow(['Survey_ID','NAACC_ID','Lat','Long','Rd_Name','Culv_Mat','In_Type','In_Shape','In_A','In_B','HW','Slope','Length','Out_Shape','Out_A','Out_B','Comments','Flags']) #header row
 
@@ -51,11 +55,11 @@ with open(raw_data, 'r') as f:
     input_table = csv.reader(f)
     next(f) # skip header
     k=1
-    if data_type=='F'or data_type=='f':
-        for row in input_table: #each culvert 
+    if data_type=='F'or data_type=='f': #if the data is fulcrum type
+        for row in input_table: #running through each row, i.e. each culvert 
             
-                
-                Fulcrum_ID=row[15]
+                #naming specific columns in each row
+                Fulcrum_ID=row[15] #eg: column 15 in each row of the input represents fulcrum ID
                 Lat=float(row[11])
                 Long=float(row[12])
                 Road_Name=row[16]
@@ -85,9 +89,10 @@ with open(raw_data, 'r') as f:
                 Fulcrum_ID
                 Flags=0
 
-                if Inlet_A<0:
+                # skipping rows if certain values are 0 or negligible
+                if Inlet_A<0: #skip in inlet width=0
                     next(f)
-                elif Inlet_B<0:
+                elif Inlet_B<0: #skip if inlet height= 0
                     next(f)
                 elif HW<0:
                     next(f)
@@ -96,13 +101,13 @@ with open(raw_data, 'r') as f:
                 elif Length <1:
                     next(f)
 
-                BarrierID=str(k)+ws_name
+                BarrierID=str(k)+ws_name #coerces data into string with number and watershed name
                 k=k+1     
                 writer.writerow([BarrierID, Fulcrum_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_B, Comments])
                            
-    elif data_type=='N'or data_type=='n':
+    elif data_type=='N'or data_type=='n': :# if data is of NAACC type (as opposed to fulcrum)
         NAAC_ID="1"   
-        for row in input_table: #each culvert
+        for row in input_table: #running through each culvert
 
             # eliminate blank cells from data and add data to array
             for i in range(0,67): 
@@ -111,7 +116,9 @@ with open(raw_data, 'r') as f:
                     cell_value=-1
                 CD[i]=cell_value # add field data to array
 
-            BarrierID=str(k)+ws_name
+            BarrierID=str(k)+ws_name #setting barrier id as the number followed by watershed name
+            
+            #assigning names to the different columns (same for each row)
             Survey_ID=CD[0]
             NAACC_ID=CD[35]
             Lat=float(CD[20])
@@ -175,24 +182,29 @@ with open(raw_data, 'r') as f:
             else:
                 Flags=0
 
+            #testing for negative values in the specified parameters (Inlet_A,Inlet_B,HW,Length)
             Neg_test=[Inlet_A,Inlet_B,HW,Length]
             N=0
             for i in range(0,4):
-                if Neg_test[i]<0:
+                if Neg_test[i]<0: #if negative values exist, N is set as not equal to 0, i.e. that crossing is not considered
                     N=N+1
                 
             if CD[11]!="Bridge" and N==0:
-                # Bridge crossings are not modeled
+                # If the 'Crossing Type' column does not indicate 'Bridge', and passes neg_test, it is modelled
+                # i.e. if it does indicate 'bridge', it is not conidered since bridges are not modelled
                 writer.writerow([BarrierID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
                 k=k+1
             elif CD[44]=="Box/Bridge with Abutments" and Inlet_A<20 and N==0:
-                # Crossings less than 20 ft are considered culverts
+                # If the 'Inlet_Structure_Type' field indicates 'Box/Bridge with Abutments', inlet width is less than 20 ft, and neg_test
+                # is passed, the crossing is considered a culvert and is modelled
                 writer.writerow([BarrierID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
                 k=k+1
             elif CD[44]=="Open Bottom Arch Bridge/Culvert" and Inlet_A<20 and N==0:
-                # Crossings less than 20 ft are considered culverts
+              # If the 'Inlet_Structure_Type' field indicates 'Open Bottom Arch Bridge/Culvert', inlet width is less than 20 ft, and neg_test
+                # is passed, the crossing is considered a culvert and is modelled
                 writer.writerow([BarrierID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
                 k=k+1
+            # if the none of the above sets of conditions are met, the crossing is not modelled and is stored in the file of non-extracted data 
             else:
                 writer_no_extract.writerow([Survey_ID, NAACC_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_A, Comments, Flags])
             
@@ -200,9 +212,10 @@ f.close()
 f_out.close()
 not_extracted_out.close()
 
-file_out_path=os.path.dirname(os.path.abspath(output))+'\\' + output
-no_extract_out_path=os.path.dirname(os.path.abspath(not_extracted))+'\\' + not_extracted
+file_out_path=os.path.dirname(os.path.abspath(output))+'\\' + output #sets the directory and name of the output file
+no_extract_out_path=os.path.dirname(os.path.abspath(not_extracted))+'\\' + not_extracted #sets he directory and name of the file containing data not extracted
 
+#displays a message to the user indicating completion of extraction and the locations of the output files
 print '\nExtraction complete! Exctracted values can be found here:\n'
 print file_out_path
 print 'Crossings excluded from analysis can be found here:\n'
