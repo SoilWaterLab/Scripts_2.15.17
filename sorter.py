@@ -1,8 +1,11 @@
 # Sorter.py
 # David Gold
 # November 6, 2015
-
-
+#
+# Updates by Lisa Watkins, 9/15/2016
+#
+# Resiliency Edits by Noah 8/30/2016
+#
 # This script will sort the ws data exported from GIS by ID number
 
 import csv, sys, operator, numpy, loader
