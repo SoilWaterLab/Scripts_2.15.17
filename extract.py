@@ -2,6 +2,8 @@
 # David Gold
 # August, 14 2015
 #
+# Minor edits by Allison 8/1/2017 to change required file name input (see ln 54)
+#
 # Comments added by Tanvi Naidu (June 8th 2017)
 #
 # Bridges section fixed by Zoya Kaufmann 1/23/17, minor edits 6/8/2017
@@ -20,7 +22,7 @@
 raw_data=raw_input("Enter name of raw data file:") #promts user to enter file name
 L_rd=len(raw_data)
 if raw_data[L_rd-4:]!='.csv': #corrects entered file name to end with '.csv' it if doesn't already
-    raw_data=raw_data+'.csv'   #end with '.csv' 
+    raw_data=raw_data+'.csv'   #end with '.csv'
 ws_name=raw_input("Enter watershed abbreviation:") #prompts user to enter three-letter watershed abbreviation
 data_type=raw_input("Fulcrum data or NAACC data? (Enter F for Fulcrum, N for NAACC):")
 #prompts user to enter F or N based on type of data input
@@ -51,7 +53,8 @@ CD=[] # initialize an array to store field data values
 for j in range(0,67):
     CD.append('blank')
 
-with open(raw_data, 'r') as f:
+raw_data_loc = os.path.join(os.getcwd(), ws_name, "Data", raw_data) # append watershed name and Data in front of file name
+with open(raw_data_loc, 'r') as f:
     input_table = csv.reader(f)
     next(f) # skip header
     k=1
@@ -105,7 +108,7 @@ with open(raw_data, 'r') as f:
                 k=k+1     
                 writer.writerow([BarrierID, Fulcrum_ID, Lat, Long, Road_Name, Culv_material, Inlet_type, Inlet_Shape, Inlet_A, Inlet_B, HW, Slope,Length, Outlet_shape, Outlet_A, Outlet_B, Comments])
                            
-    elif data_type=='N'or data_type=='n': :# if data is of NAACC type (as opposed to fulcrum)
+    elif data_type=='N'or data_type=='n': # if data is of NAACC type (as opposed to fulcrum)
         NAAC_ID="1"   
         for row in input_table: #running through each culvert
 
